@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Futuristic Endless Shooter</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: radial-gradient(circle at center, #222 0%, #111 100%);
+    }
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+    }
+    .btn {
+      background: #0ff;
+      color: #000;
+      padding: 15px 25px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 0 10px #0ff;
+    }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="400" height="700"></canvas>
+<div id="controls">
+  <button class="btn" id="leftBtn">◀️</button>
+  <button class="btn" id="laserBtn">💥</button>
+  <button class="btn" id="rightBtn">▶️</button>
+</div>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const player = { x: 180, y: 650, width: 20, height: 20, clones: 0 };
+let bullets = [];
+let enemies = [];
+let lasers = 0;
+let kills = 0;
+let score = 0;
+let lives = 3;
+let enemySpeed = 1;
+
+function drawPlayer() {
+  ctx.fillStyle = "#0ff";
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+  for (let i = 1; i <= player.clones; i++) {
+    ctx.fillRect(player.x - i * 25, player.y, player.width, player.height);
+    ctx.fillRect(player.x + i * 25, player.y, player.width, player.height);
+  }
+}
+
+function drawBullets() {
+  ctx.fillStyle = "#fff";
+  bullets.forEach((b) => ctx.fillRect(b.x, b.y, 3, 10));
+}
+
+function drawEnemies() {
+  enemies.forEach((e) => {
+    ctx.fillStyle = e.color;
+    ctx.fillRect(e.x, e.y, e.size, e.size);
+  });
+}
+
+function drawHUD() {
+  ctx.fillStyle = "#fff";
+  ctx.font = "16px sans-serif";
+  ctx.fillText(`Score: ${score}`, 10, 20);
+  ctx.fillText(`Kills: ${kills}`, 10, 40);
+  ctx.fillText(`Lives: ${lives}`, 10, 60);
+  ctx.fillText(`Lasers: ${lasers}`, 10, 80);
+}
+
+function shoot() {
+  bullets.push({ x: player.x + player.width / 2 - 1.5, y: player.y });
+  for (let i = 1; i <= player.clones; i++) {
+    bullets.push({ x: player.x - i * 25 + player.width / 2 - 1.5, y: player.y });
+    bullets.push({ x: player.x + i * 25 + player.width / 2 - 1.5, y: player.y });
+  }
+}
+
+setInterval(shoot, 100); // faster shooting speed
+
+function spawnEnemy() {
+  const size = 20;
+  const x = Math.random() * (canvas.width - size);
+  const color = ["#f00", "#f0f", "#ff0"][Math.floor(Math.random() * 3)];
+  enemies.push({ x, y: 0, size, color });
+}
+
+setInterval(spawnEnemy, 500);
+
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  bullets.forEach((b) => (b.y -= 5));
+  bullets = bullets.filter((b) => b.y > 0);
+  enemies.forEach((e) => (e.y += enemySpeed));
+
+  bullets.forEach((b, bi) => {
+    enemies.forEach((e, ei) => {
+      if (
+        b.x < e.x + e.size &&
+        b.x + 3 > e.x &&
+        b.y < e.y + e.size &&
+        b.y + 10 > e.y
+      ) {
+        enemies.splice(ei, 1);
+        bullets.splice(bi, 1);
+        score++;
+        kills++;
+        if (kills % 50 === 0 && lasers < 10) lasers++;
+        if (kills % 75 === 0) activateClones();
+        if (kills % 100 === 0) {
+          enemySpeed *= 1.1;
+          lives++;
+        }
+      }
+    });
+  });
+
+  enemies.forEach((e, ei) => {
+    if (
+      (e.y + e.size > player.y && e.x < player.x + player.width && e.x + e.size > player.x) ||
+      (player.clones &&
+        ((e.x < player.x - 25 + player.width && e.x + e.size > player.x - 25) ||
+          (e.x < player.x + 25 + player.width && e.x + e.size > player.x + 25)) &&
+        e.y + e.size > player.y)
+    ) {
+      enemies.splice(ei, 1);
+      lives--;
+      if (lives <= 0) alert("Game Over! Score: " + score);
+    }
+  });
+
+  drawPlayer();
+  drawBullets();
+  drawEnemies();
+  drawHUD();
+
+  requestAnimationFrame(update);
+}
+
+function activateClones() {
+  player.clones = 1;
+  setTimeout(() => (player.clones = 0), 15000);
+}
+
+function useLaser() {
+  if (lasers > 0) {
+    lasers--;
+    enemies = [];
+    score += 2 * kills;
+    kills += kills;
+    ctx.fillStyle = 'rgba(0,255,255,0.5)';
+    ctx.fillRect(0, 0, canvas.width, player.y);
+  }
+}
+
+function moveLeft() {
+  player.x = Math.max(0, player.x - 20);
+}
+function moveRight() {
+  player.x = Math.min(canvas.width - player.width, player.x + 20);
+}
+
+// Button controls
+const leftBtn = document.getElementById("leftBtn");
+const rightBtn = document.getElementById("rightBtn");
+const laserBtn = document.getElementById("laserBtn");
+
+leftBtn.addEventListener("click", moveLeft);
+rightBtn.addEventListener("click", moveRight);
+laserBtn.addEventListener("click", useLaser);
+
+update();
+</script>
+</body>
+</html>
